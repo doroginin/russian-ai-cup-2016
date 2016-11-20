@@ -2,7 +2,7 @@ from tkinter import *
 
 
 class Debug:
-    CELL = 3
+    CELL = 5
 
     def __init__(self, w, h):
         self.window = Tk()

@@ -10,12 +10,13 @@ import canvas
 
 class Action(Enum):
     idle = 1
-    going = 2
-    attack = 3
+    rotate = 2
+    go = 3
+    attack = 4
 
 
 class MyStrategy:
-    CELL = 35
+    CELL = 70
     path = []
     current_destination_cell = None
     action = Action.idle
@@ -32,22 +33,18 @@ class MyStrategy:
         self.do(me, world, game, move, action, action_args)
 
     def what_to_do(self, me: Wizard, world: World, game: Game, move: Move):
+        target, found = self.find_target(me, world, game, move)
+        if found:
+            return Action.attack, target
+
         if self.action == Action.idle:
-            target, found = self.find_target(me, world, game, move)
-            if found:
-                return Action.attack, target
+            return Action.go, (1500, 300)
 
-            return Action.going, (3700, 100)
-
-        if self.action == Action.going:
-            target, found = self.find_target(me, world, game, move)
-            if found:
-                return Action.attack, target
-
-            return Action.going, {}
+        return self.action, {}
 
     def do(self, me: Wizard, world: World, game: Game, move: Move, action, action_args):
-        if action == Action.going:
+        self.action = action
+        if action == Action.go:
             obstacles = self.find_obstacles(world)
             self.debug.draw_obstacles(obstacles)
 
@@ -74,15 +71,32 @@ class MyStrategy:
                 x, y = self.current_destination_cell
                 x = self.r(x)
                 y = self.r(y)
-                if abs(x - me.x) < me.radius and abs(y - me.y) < me.radius:
+                if abs(x - me.x) < me.radius * 2 and abs(y - me.y) < me.radius * 2:
                     move.speed = 0
                     self.current_destination_cell = None
                 else:
                     angle = me.get_angle_to(x, y)
-                    move.turn = angle
+                    if abs(angle) > 0:
+                        self.do(me, world, game, move, Action.rotate, {})
+                        return
                     move.speed = game.wizard_forward_speed
 
-        self.action = action
+        if action == Action.rotate:
+            if self.current_destination_cell:
+                x, y = self.current_destination_cell
+                x = self.r(x)
+                y = self.r(y)
+                angle = me.get_angle_to(x, y)
+                if abs(angle) > 0:
+                    move.speed = 0
+                    move.turn = angle
+                else:
+                    move.turn = 0
+                    move.speed = game.wizard_forward_speed
+                    self.do(me, world, game, move, Action.go, {})
+            else:
+                self.do(me, world, game, move, Action.idle, {})
+
 
     def find_path(self, size, start, end, unreachable_cells):
         w, h = size
@@ -102,13 +116,13 @@ class MyStrategy:
     def find_obstacles(self, world: World):
         obstacles = []
         for b in world.buildings:
-            for x in range(self.c(b.x - b.radius / 2), self.c(b.x + b.radius / 2)):
-                for y in range(self.c(b.y - b.radius / 2), self.c(b.y + b.radius / 2)):
+            for x in range(self.c(b.x - b.radius), self.c(b.x + b.radius)):
+                for y in range(self.c(b.y - b.radius), self.c(b.y + b.radius)):
                     obstacles.append((x, y))
 
         for t in world.trees:
-            for x in range(self.c(t.x - t.radius / 2), self.c(t.x + t.radius / 2)):
-                for y in range(self.c(t.y - t.radius / 2), self.c(t.y + t.radius / 2)):
+            for x in range(self.c(t.x - t.radius), self.c(t.x + t.radius)):
+                for y in range(self.c(t.y - t.radius), self.c(t.y + t.radius)):
                     obstacles.append((x, y))
 
         return obstacles
@@ -117,4 +131,4 @@ class MyStrategy:
         return int(v // self.CELL) + 1
 
     def r(self, v):
-        return (v - 1) * self.CELL
+        return (v - 1) * self.CELL + self.CELL / 2
