@@ -1,16 +1,41 @@
-from math import *
 from tkinter import *
 
 
 class Debug:
+    CELL = 3
+
     def __init__(self, w, h):
         self.window = Tk()
-        self.canvas = Canvas(self.window, width=w, height=h, bg="white")
-        self.canvas.create_line(5, 5, 100, 100, width=2, arrow=LAST)
-        self.canvas.create_line(5, 100, 100, 5, width=2, arrow=LAST)
+        self.canvas = Canvas(self.window, width=w * self.CELL, height=h * self.CELL, bg="white")
         self.canvas.pack()
 
-    def update(self, ):
+    def clear(self):
+        self.canvas.delete("all")
+
+    def draw_wizard(self, wizard):
+        x, y = wizard
+        # draw wizard
+        self.canvas.create_rectangle(x * self.CELL, y * self.CELL,
+                                     (x + 1) * self.CELL - 1, (y + 1) * self.CELL - 1,
+                                     outline="blue", fill="blue")
+        self.window.update()
+
+    def draw_path(self, path):
+        # draw path
+        for i in path:
+            x, y = i
+            self.canvas.create_rectangle(x * self.CELL, y * self.CELL,
+                                         (x + 1) * self.CELL - 1, (y + 1) * self.CELL - 1,
+                                         outline="green", fill="green")
+        self.window.update()
+
+    def draw_obstacles(self, obstacles):
+        # draw obstacles
+        for i in obstacles:
+            x, y = i
+            self.canvas.create_rectangle(x * self.CELL, y * self.CELL,
+                                         (x + 1) * self.CELL - 1, (y + 1) * self.CELL - 1,
+                                         outline="black", fill="black")
         self.window.update()
 
     #First_x = -500;

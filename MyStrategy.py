@@ -4,65 +4,117 @@ from model.Move import Move
 from model.Wizard import Wizard
 from model.World import World
 import astar as pf
-import canvas as c
+from enum import Enum
+import canvas
+
+
+class Action(Enum):
+    idle = 1
+    going = 2
+    attack = 3
 
 
 class MyStrategy:
-    CELL_WIDTH = 35
-    CELL_HEIGHT = 35
-    debug = None
+    CELL = 35
     path = []
+    current_destination_cell = None
+    action = Action.idle
+
+    debug = None
 
     def move(self, me: Wizard, world: World, game: Game, move: Move):
         if self.debug is None:
-            self.debug = c.Debug(int(world.width // self.CELL_WIDTH), int(world.width // self.CELL_HEIGHT))
+            self.debug = canvas.Debug(self.c(world.width), self.c(world.width))
+        self.debug.clear()
+        self.debug.draw_wizard((self.c(me.x), self.c(me.y)))
 
-        self.debug.update()
+        action, action_args = self.what_to_do(me, world, game, move)
+        self.do(me, world, game, move, action, action_args)
 
-        if len(self.path) == 0:
-            self.path = self.find_path(me, world, game, move)
+    def what_to_do(self, me: Wizard, world: World, game: Game, move: Move):
+        if self.action == Action.idle:
+            target, found = self.find_target(me, world, game, move)
+            if found:
+                return Action.attack, target
 
-        if len(self.path) > 0:
-            cell = self.path.pop()
-            x = cell[0] * self.CELL_WIDTH
-            y = cell[1] * self.CELL_WIDTH
-            angle = me.get_angle_to(x, y)
-            move.turn = angle
-            move.speed = game.wizard_forward_speed
-        else:
-            move.speed = 0
+            return Action.going, (3700, 100)
 
-        #print(self.path)
-        #print(self.path.pop())
-        #next_cell = self.path.pop()
-        #me.get_angle_to(x, y)
-        # move.speed = game.wizard_forward_speed
-        # move.strafe_speed = game.wizard_strafe_speed
-        # move.turn = game.wizard_max_turn_angle
-        # move.action = ActionType.MAGIC_MISSILE
-        # self.go_to(me, move, game, 100, 3600)
+        if self.action == Action.going:
+            target, found = self.find_target(me, world, game, move)
+            if found:
+                return Action.attack, target
 
-    def find_path(self, me: Wizard, world: World, game: Game, move: Move):
-        current_position = (int(me.x // self.CELL_WIDTH), int(me.y // self.CELL_HEIGHT))
-        go_to = (int(3700 // self.CELL_WIDTH), int(100 // self.CELL_HEIGHT))
+            return Action.going, {}
+
+    def do(self, me: Wizard, world: World, game: Game, move: Move, action, action_args):
+        if action == Action.going:
+            obstacles = self.find_obstacles(world)
+            self.debug.draw_obstacles(obstacles)
+
+            if len(action_args) > 0:
+                self.path = self.find_path((world.width, world.height), (me.x, me.y), action_args, obstacles)
+                self.current_destination_cell = None
+            else:
+                for c in obstacles:
+                    for p in self.path:
+                        if p == c:
+                            print("obstacle detected")
+                            end = self.path.pop()
+                            self.path = self.find_path((world.width, world.height), (me.x, me.y),
+                                                       (self.r(end[0]), self.r(end[1])), obstacles)
+                            self.current_destination_cell = None
+
+            self.debug.draw_path(self.path)
+
+            if self.current_destination_cell is None and len(self.path) > 0:
+                self.current_destination_cell = self.path[0]
+                del self.path[0]
+
+            if self.current_destination_cell:
+                x, y = self.current_destination_cell
+                x = self.r(x)
+                y = self.r(y)
+                if abs(x - me.x) < me.radius and abs(y - me.y) < me.radius:
+                    move.speed = 0
+                    self.current_destination_cell = None
+                else:
+                    angle = me.get_angle_to(x, y)
+                    move.turn = angle
+                    move.speed = game.wizard_forward_speed
+
+        self.action = action
+
+    def find_path(self, size, start, end, unreachable_cells):
+        w, h = size
+        start_x, start_y = start
+        current_position = self.c(start_x), self.c(start_y)
+        end_x, end_y = end
+        go_to = self.c(end_x), self.c(end_y)
         a = pf.AStar()
-        unreachable_cells = []
-        for b in world.buildings:
-            for x in range(int((b.x - b.radius / 2) // self.CELL_WIDTH), int((b.x + b.radius / 2) // self.CELL_WIDTH)):
-                for y in range(int((b.y - b.radius / 2) // self.CELL_HEIGHT),
-                               int((b.y + b.radius / 2) // self.CELL_HEIGHT)):
-                    unreachable_cells.append((x, y))
-
-        a.init_grid(int(world.width // self.CELL_WIDTH), int(world.height // self.CELL_HEIGHT), unreachable_cells,
+        a.init_grid(self.c(w), self.c(h), unreachable_cells,
                     current_position, go_to)
         path = a.solve()
-        #self.debug(path, me, world, game, move)
         return path
 
-    # def go_to(self, me: Wizard, move: Move, game: Game, x, y):
-    #     self.going = True
-    #     angle = me.get_angle_to(x, y)
-    #     move.turn = angle
-    #     if abs(angle) < game.staff_sector / 4.0:
-    #         move.speed = game.wizard_forward_speed
+    def find_target(self, me: Wizard, world: World, game: Game, move: Move):
+        return False, {}
 
+    def find_obstacles(self, world: World):
+        obstacles = []
+        for b in world.buildings:
+            for x in range(self.c(b.x - b.radius / 2), self.c(b.x + b.radius / 2)):
+                for y in range(self.c(b.y - b.radius / 2), self.c(b.y + b.radius / 2)):
+                    obstacles.append((x, y))
+
+        for t in world.trees:
+            for x in range(self.c(t.x - t.radius / 2), self.c(t.x + t.radius / 2)):
+                for y in range(self.c(t.y - t.radius / 2), self.c(t.y + t.radius / 2)):
+                    obstacles.append((x, y))
+
+        return obstacles
+
+    def c(self, v):
+        return int(v // self.CELL) + 1
+
+    def r(self, v):
+        return (v - 1) * self.CELL
