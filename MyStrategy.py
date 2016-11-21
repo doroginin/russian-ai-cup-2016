@@ -6,6 +6,7 @@ from model.World import World
 import astar as pf
 from enum import Enum
 import canvas
+from math import sqrt
 
 
 class Action(Enum):
@@ -26,6 +27,8 @@ class MyStrategy:
     def move(self, me: Wizard, world: World, game: Game, move: Move):
         if self.debug is None:
             self.debug = canvas.Debug(self.c(world.width), self.c(world.width))
+
+        print("x: {}, y: {}".format(me.x, me.y))
         self.debug.clear()
         self.debug.draw_wizard((self.c(me.x), self.c(me.y)))
 
@@ -38,7 +41,7 @@ class MyStrategy:
             return Action.attack, target
 
         if self.action == Action.idle:
-            return Action.go, (1500, 300)
+            return Action.go, (1000, 500)
 
         return self.action, {}
 
@@ -71,7 +74,7 @@ class MyStrategy:
                 x, y = self.current_destination_cell
                 x = self.r(x)
                 y = self.r(y)
-                if abs(x - me.x) < me.radius * 2 and abs(y - me.y) < me.radius * 2:
+                if abs(x - me.x) == 0 and abs(y - me.y) == 0:
                     move.speed = 0
                     self.current_destination_cell = None
                 else:
@@ -79,7 +82,7 @@ class MyStrategy:
                     if abs(angle) > 0:
                         self.do(me, world, game, move, Action.rotate, {})
                         return
-                    move.speed = game.wizard_forward_speed
+                    move.speed = sqrt((x - me.x) ** 2 + (y - me.y) ** 2)
 
         if action == Action.rotate:
             if self.current_destination_cell:
@@ -88,15 +91,13 @@ class MyStrategy:
                 y = self.r(y)
                 angle = me.get_angle_to(x, y)
                 if abs(angle) > 0:
-                    move.speed = 0
                     move.turn = angle
                 else:
                     move.turn = 0
-                    move.speed = game.wizard_forward_speed
+                    move.speed = 0
                     self.do(me, world, game, move, Action.go, {})
             else:
                 self.do(me, world, game, move, Action.idle, {})
-
 
     def find_path(self, size, start, end, unreachable_cells):
         w, h = size
