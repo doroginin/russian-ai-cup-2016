@@ -1,42 +1,62 @@
 from tkinter import *
-
+from model.Wizard import Wizard
+from model.World import World
 
 class Debug:
-    CELL = 5
+    scale = 1
+    calc_cell_size = 1
 
-    def __init__(self, w, h):
+    def __init__(self, w, h, scale, calc_cell_size):
+        self.scale = scale
+        self.calc_cell_size = calc_cell_size
         self.window = Tk()
-        self.canvas = Canvas(self.window, width=w * self.CELL, height=h * self.CELL, bg="white")
+        self.canvas = Canvas(self.window, width=w * self.scale, height=h * self.scale, bg="white")
         self.canvas.pack()
 
     def clear(self):
         self.canvas.delete("all")
 
-    def draw_wizard(self, wizard):
-        x, y = wizard
-        # draw wizard
-        self.canvas.create_rectangle(x * self.CELL, y * self.CELL,
-                                     (x + 1) * self.CELL - 1, (y + 1) * self.CELL - 1,
-                                     outline="blue", fill="blue")
-        self.window.update()
+    def draw(self, wizard: Wizard, world: World, route, obstacles):
+        self.clear()
 
-    def draw_path(self, path):
-        # draw path
-        for i in path:
+        self.canvas.create_oval((wizard.x - wizard.radius) * self.scale,
+                                (wizard.y - wizard.radius) * self.scale,
+                                (wizard.x + wizard.radius) * self.scale,
+                                (wizard.y + wizard.radius) * self.scale,
+                                outline="blue", fill="blue")
+
+        for b in world.buildings:
+            self.canvas.create_oval((b.x - b.radius) * self.scale,
+                                    (b.y - b.radius) * self.scale,
+                                    (b.x + b.radius) * self.scale,
+                                    (b.y + b.radius) * self.scale,
+                                    outline="black")
+
+        for t in world.trees:
+            self.canvas.create_oval((t.x - t.radius) * self.scale,
+                                    (t.y - t.radius) * self.scale,
+                                    (t.x + t.radius) * self.scale,
+                                    (t.y + t.radius) * self.scale,
+                                    outline="green")
+
+        for i in route:
             x, y = i
-            self.canvas.create_rectangle(x * self.CELL, y * self.CELL,
-                                         (x + 1) * self.CELL - 1, (y + 1) * self.CELL - 1,
-                                         outline="green", fill="green")
-        self.window.update()
+            self.canvas.create_rectangle(x * self.calc_cell_size * self.scale,
+                                         y * self.calc_cell_size * self.scale,
+                                         (x + 1) * self.calc_cell_size * self.scale - 1,
+                                         (y + 1) * self.calc_cell_size * self.scale - 1,
+                                         outline="#FFEE15")
 
-    def draw_obstacles(self, obstacles):
-        # draw obstacles
         for i in obstacles:
             x, y = i
-            self.canvas.create_rectangle(x * self.CELL, y * self.CELL,
-                                         (x + 1) * self.CELL - 1, (y + 1) * self.CELL - 1,
-                                         outline="black", fill="black")
+            self.canvas.create_rectangle(x * self.calc_cell_size * self.scale,
+                                         y * self.calc_cell_size * self.scale,
+                                         (x + 1) * self.calc_cell_size * self.scale - 1,
+                                         (y + 1) * self.calc_cell_size * self.scale - 1,
+                                         outline="gray")
+
         self.window.update()
+
 
     #First_x = -500;
 
