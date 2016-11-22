@@ -4,7 +4,6 @@ from model.Move import Move
 from model.Wizard import Wizard
 from model.World import World
 import astar as pf
-from enum import Enum
 import canvas
 from math import sqrt
 
@@ -42,7 +41,7 @@ class MyStrategy:
 
     def __init__(self):
         self.brain = Brain()
-        self.brain.add_thought(lambda: self.go_to(100, 100))
+        self.brain.add_thought(lambda: self.go_to(1500, 1500))
 
     def move(self, me: Wizard, world: World, game: Game, move: Move):
         if self.debug is None:
@@ -79,13 +78,11 @@ class MyStrategy:
 
     def go_to_next_cell(self):
         if self.find_obstacles_in_route():
-            end = self.route.pop()
-            self.brain.add_thought(lambda: self.find_path(self.r(end[0]), self.r(end[1])))
-            self.brain.think()
+            self.brain.forget_current_thought()
             return
 
         if self.next_cell is None:
-            if len(self.route) > 2:
+            if len(self.route) > 0:
                 # self.next_cell = self.route[1]
                 # del self.route[0]
                 # del self.route[1]
