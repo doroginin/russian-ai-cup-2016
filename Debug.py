@@ -1,6 +1,9 @@
 from tkinter import *
 from model.Wizard import Wizard
 from model.World import World
+from model.Move import Move
+from math import *
+
 
 class Debug:
     scale = 1
@@ -13,17 +16,26 @@ class Debug:
         self.canvas = Canvas(self.window, width=w * self.scale, height=h * self.scale, bg="white")
         self.canvas.pack()
 
-    def clear(self):
+    def draw(self, wizard: Wizard, world: World, move: Move, route, obstacles, destination):
         self.canvas.delete("all")
 
-    def draw(self, wizard: Wizard, world: World, route, obstacles):
-        self.clear()
+        self.canvas.create_text(self.canvas.winfo_width() / 2, 10, text=str(hypot(wizard.speed_x, wizard.speed_y)), fill="red", font=("Helvectica", "10"))
 
         self.canvas.create_oval((wizard.x - wizard.radius) * self.scale,
                                 (wizard.y - wizard.radius) * self.scale,
                                 (wizard.x + wizard.radius) * self.scale,
                                 (wizard.y + wizard.radius) * self.scale,
-                                outline="blue", fill="blue")
+                                outline="blue")
+
+        self.canvas.create_line(wizard.x * self.scale, wizard.y * self.scale,
+                                (wizard.x + wizard.vision_range * cos(wizard.angle)) * self.scale,
+                                (wizard.y + wizard.vision_range * sin(wizard.angle)) * self.scale,
+                                fill="blue")
+
+        self.canvas.create_line(wizard.x * self.scale, wizard.y * self.scale,
+                                (wizard.x + move.speed * cos(wizard.angle)) * self.scale,
+                                (wizard.y + move.speed * sin(wizard.angle)) * self.scale,
+                                fill="red", width=2)
 
         for b in world.buildings:
             self.canvas.create_oval((b.x - b.radius) * self.scale,
@@ -54,6 +66,19 @@ class Debug:
                                          (x + 1) * self.calc_cell_size * self.scale - 1,
                                          (y + 1) * self.calc_cell_size * self.scale - 1,
                                          outline="gray")
+
+        if len(destination) == 2:
+            x, y = destination
+            self.canvas.create_line((x - self.calc_cell_size / 3) * self.scale,
+                                    (y - self.calc_cell_size / 3) * self.scale,
+                                    (x + self.calc_cell_size / 3) * self.scale,
+                                    (y + self.calc_cell_size / 3) * self.scale,
+                                    fill='red')
+            self.canvas.create_line((x - self.calc_cell_size / 3) * self.scale,
+                                    (y + self.calc_cell_size / 3) * self.scale,
+                                    (x + self.calc_cell_size / 3) * self.scale,
+                                    (y - self.calc_cell_size / 3) * self.scale,
+                                    fill='red')
 
         self.window.update()
 
