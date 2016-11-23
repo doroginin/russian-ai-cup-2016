@@ -25,7 +25,7 @@ class Cell(object):
 
 
 class AStar(object):
-    def __init__(self):
+    def __init__(self, allow_diagonal_transition=False):
         # open list
         self.opened = []
         heapq.heapify(self.opened)
@@ -35,6 +35,9 @@ class AStar(object):
         self.cells = []
         self.grid_height = None
         self.grid_width = None
+        self.start = None
+        self.end = None
+        self.allow_diagonal_transition = allow_diagonal_transition
 
     def init_grid(self, width, height, walls, start, end):
         """Prepare grid cells, walls.
@@ -86,25 +89,41 @@ class AStar(object):
             cells.append(self.get_cell(cell.x-1, cell.y))
         if cell.y < self.grid_height-1:
             cells.append(self.get_cell(cell.x, cell.y+1))
+
+        # if self.allow_diagonal_transition:
+        #     if cell.x < self.grid_width-1 and self.grid_height-1:
+        #         cells.append(self.get_cell(cell.x+1, cell.y+1))
+        #     if cell.x < self.grid_width-1 and cell.y > 0:
+        #         cells.append(self.get_cell(cell.x+1, cell.y-1))
+        #     if cell.x > 0 and self.grid_height-1:
+        #         cells.append(self.get_cell(cell.x-1, cell.y+1))
+        #     if cell.x > 0 and cell.y > 0:
+        #         cells.append(self.get_cell(cell.x-1, cell.y-1))
+
         return cells
 
     def get_path(self):
+        start_xy = (self.start.x, self.start.y)
+        if self.end is self.start:
+            return [start_xy]
+
         cell = self.end
         path = [(cell.x, cell.y)]
         while cell.parent is not self.start:
             cell = cell.parent
             path.append((cell.x, cell.y))
 
-        path.append((self.start.x, self.start.y))
+        path.append(start_xy)
         path.reverse()
         return path
 
-    def update_cell(self, adj, cell):
+    def update_cell(self, adj, cell, is_diagonal):
         """Update adjacent cell.
         @param adj adjacent cell to current cell
         @param cell current cell being processed
+        @param is_diagonal bool true for diagonal transition
         """
-        adj.g = cell.g + 10
+        adj.g = cell.g + (14 if is_diagonal else 10)
         adj.h = self.get_heuristic(adj)
         adj.parent = cell
         adj.f = adj.h + adj.g
@@ -127,13 +146,21 @@ class AStar(object):
             adj_cells = self.get_adjacent_cells(cell)
             for adj_cell in adj_cells:
                 if adj_cell.reachable and adj_cell not in self.closed:
+                    is_diagonal = cell.x != adj_cell.x and cell.y != adj_cell.y
+                    # for diagonal transition, check availability of cells around diagonal
+                    if is_diagonal:
+                        h_cell = self.get_cell(cell.x + (adj_cell.x - cell.x), cell.y)
+                        v_cell = self.get_cell(cell.x, cell.y + (adj_cell.y - cell.y))
+                        if not h_cell.reachable or not v_cell.reachable:
+                            continue
+
                     if (adj_cell.f, adj_cell) in self.opened:
                         # if adj cell in open list, check if current path is
                         # better than the one previously found
                         # for this adj cell.
-                        if adj_cell.g > cell.g + 10:
-                            self.update_cell(adj_cell, cell)
+                        if adj_cell.g > cell.g + (14 if is_diagonal else 10):
+                            self.update_cell(adj_cell, cell, is_diagonal)
                     else:
-                        self.update_cell(adj_cell, cell)
+                        self.update_cell(adj_cell, cell, is_diagonal)
                         # add adj cell to open list
                         heapq.heappush(self.opened, (adj_cell.f, adj_cell))
