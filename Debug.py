@@ -3,6 +3,9 @@ from model.Wizard import Wizard
 from model.World import World
 from model.Move import Move
 from math import *
+from Brain import Brain
+import collections
+from inspect import getsource
 
 
 class Debug:
@@ -16,10 +19,29 @@ class Debug:
         self.canvas = Canvas(self.window, width=w * self.scale, height=h * self.scale, bg="white")
         self.canvas.pack()
 
-    def draw(self, wizard: Wizard, world: World, move: Move, route, obstacles, destination):
+    def draw(self, brain: Brain, wizard: Wizard, world: World, move: Move, route, obstacles, destination):
         self.canvas.delete("all")
 
-        self.canvas.create_text(self.canvas.winfo_width() / 2, 10, text=str(hypot(wizard.speed_x, wizard.speed_y)), fill="red", font=("Helvectica", "10"))
+        ti = 0
+        for t in brain.processed:
+            self.canvas.create_text(self.canvas.winfo_width() - 10, 10 + ti * 10,
+                                    text=getsource(t).strip().replace("self.brain.add_thought(lambda: self.", "")[:-1]
+                                    if t.__name__ == "<lambda>" else t.__name__,
+                                    fill="blue", font=("Helvectica", "10"), anchor="e")
+            ti += 1
+        for t in brain.thoughts:
+            self.canvas.create_text(self.canvas.winfo_width() - 10, 10 + ti * 10,
+                                    text=getsource(t).strip().replace("self.brain.add_thought(lambda: self.", "")[:-1]
+                                    if t.__name__ == "<lambda>" else t.__name__,
+                                    fill="red", font=("Helvectica", "10"), anchor="e")
+            ti += 1
+
+        self.canvas.create_text(self.canvas.winfo_width() / 2, 10,
+                                text="speed: {:.2f}".format(hypot(wizard.speed_x, wizard.speed_y)),
+                                fill="red", font=("Helvectica", "10"))
+        self.canvas.create_text(self.canvas.winfo_width() / 2, 20,
+                                text="angle: {:.2f}".format(wizard.angle / pi * 180),
+                                fill="red", font=("Helvectica", "10"))
 
         self.canvas.create_oval((wizard.x - wizard.radius) * self.scale,
                                 (wizard.y - wizard.radius) * self.scale,
@@ -51,13 +73,14 @@ class Debug:
                                     (t.y + t.radius) * self.scale,
                                     outline="green")
 
-        for i in route:
-            x, y = i
-            self.canvas.create_rectangle(x * self.calc_cell_size * self.scale,
-                                         y * self.calc_cell_size * self.scale,
-                                         (x + 1) * self.calc_cell_size * self.scale - 1,
-                                         (y + 1) * self.calc_cell_size * self.scale - 1,
-                                         outline="#FFEE15")
+        if isinstance(route, collections.Iterable):
+            for i in route:
+                x, y = i
+                self.canvas.create_rectangle(x * self.calc_cell_size * self.scale,
+                                             y * self.calc_cell_size * self.scale,
+                                             (x + 1) * self.calc_cell_size * self.scale - 1,
+                                             (y + 1) * self.calc_cell_size * self.scale - 1,
+                                             outline="#FFEE15")
 
         for i in obstacles:
             x, y = i
@@ -69,6 +92,16 @@ class Debug:
 
         if len(destination) == 2:
             x, y = destination
+            rx, ry = x // self.calc_cell_size * self.calc_cell_size + self.calc_cell_size / 2, \
+                     y // self.calc_cell_size * self.calc_cell_size + self.calc_cell_size / 2
+
+            self.canvas.create_text(10, 10,
+                                    text="goto:{:d},{:d}".format(x, y),
+                                    fill="red", font=("Helvectica", "10"), anchor="w")
+            self.canvas.create_text(10, 20,
+                                    text="calc_goto:{:.2f},{:.2f}".format(rx, ry),
+                                    fill="red", font=("Helvectica", "10"), anchor="w")
+
             self.canvas.create_line((x - self.calc_cell_size / 3) * self.scale,
                                     (y - self.calc_cell_size / 3) * self.scale,
                                     (x + self.calc_cell_size / 3) * self.scale,
@@ -80,28 +113,28 @@ class Debug:
                                     (y - self.calc_cell_size / 3) * self.scale,
                                     fill='red')
 
-        self.window.update()
+            self.window.update()
 
 
-    #First_x = -500;
+            # First_x = -500;
 
-    # for i in range(16000):
-    #     if (i % 800 == 0):
-    #         k = First_x + (1 / 16) * i
-    #         canv.create_line(k + 500, -3 + 500, k + 500, 3 + 500, width=0.5, fill='black')
-    #         canv.create_text(k + 515, -10 + 500, text=str(k), fill="purple", font=("Helvectica", "10"))
-    #         if (k != 0):
-    #             canv.create_line(-3 + 500, k + 500, 3 + 500, k + 500, width=0.5, fill='black')
-    #             canv.create_text(20 + 500, k + 500, text=str(k), fill="purple", font=("Helvectica", "10"))
-    #     try:
-    #         x = First_x + (1 / 16) * i
-    #         new_f = f.replace('x', str(x))
-    #         y = -eval(new_f) + 500
-    #         x += 500
-    #         canv.create_oval(x, y, x + 1, y + 1, fill='black')
-    #     except:
-    #         pass
+            # for i in range(16000):
+            #     if (i % 800 == 0):
+            #         k = First_x + (1 / 16) * i
+            #         canv.create_line(k + 500, -3 + 500, k + 500, 3 + 500, width=0.5, fill='black')
+            #         canv.create_text(k + 515, -10 + 500, text=str(k), fill="purple", font=("Helvectica", "10"))
+            #         if (k != 0):
+            #             canv.create_line(-3 + 500, k + 500, 3 + 500, k + 500, width=0.5, fill='black')
+            #             canv.create_text(20 + 500, k + 500, text=str(k), fill="purple", font=("Helvectica", "10"))
+            #     try:
+            #         x = First_x + (1 / 16) * i
+            #         new_f = f.replace('x', str(x))
+            #         y = -eval(new_f) + 500
+            #         x += 500
+            #         canv.create_oval(x, y, x + 1, y + 1, fill='black')
+            #     except:
+            #         pass
 
-    #win.after(500, win.mainloop)
-    # win.after(1000, win.update)
-    #win.update()
+            # win.after(500, win.mainloop)
+            # win.after(1000, win.update)
+            # win.update()
