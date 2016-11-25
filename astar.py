@@ -81,24 +81,24 @@ class AStar(object):
         @returns adjacent cells list.
         """
         cells = []
-        if cell.x < self.grid_width-1:
-            cells.append(self.get_cell(cell.x+1, cell.y))
+        if cell.x < self.grid_width - 1:
+            cells.append(self.get_cell(cell.x + 1, cell.y))
         if cell.y > 0:
-            cells.append(self.get_cell(cell.x, cell.y-1))
+            cells.append(self.get_cell(cell.x, cell.y - 1))
         if cell.x > 0:
-            cells.append(self.get_cell(cell.x-1, cell.y))
-        if cell.y < self.grid_height-1:
-            cells.append(self.get_cell(cell.x, cell.y+1))
+            cells.append(self.get_cell(cell.x - 1, cell.y))
+        if cell.y < self.grid_height - 1:
+            cells.append(self.get_cell(cell.x, cell.y + 1))
 
-        # if self.allow_diagonal_transition:
-        #     if cell.x < self.grid_width-1 and self.grid_height-1:
-        #         cells.append(self.get_cell(cell.x+1, cell.y+1))
-        #     if cell.x < self.grid_width-1 and cell.y > 0:
-        #         cells.append(self.get_cell(cell.x+1, cell.y-1))
-        #     if cell.x > 0 and self.grid_height-1:
-        #         cells.append(self.get_cell(cell.x-1, cell.y+1))
-        #     if cell.x > 0 and cell.y > 0:
-        #         cells.append(self.get_cell(cell.x-1, cell.y-1))
+        if self.allow_diagonal_transition:
+            if cell.x < self.grid_width - 1 and cell.y < self.grid_height - 1:
+                cells.append(self.get_cell(cell.x + 1, cell.y + 1))
+            if cell.x < self.grid_width - 1 and cell.y > 0:
+                cells.append(self.get_cell(cell.x + 1, cell.y - 1))
+            if cell.x > 0 and cell.y < self.grid_height - 1:
+                cells.append(self.get_cell(cell.x - 1, cell.y + 1))
+            if cell.x > 0 and cell.y > 0:
+                cells.append(self.get_cell(cell.x - 1, cell.y - 1))
 
         return cells
 

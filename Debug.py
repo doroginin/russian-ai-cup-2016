@@ -1,119 +1,153 @@
 from tkinter import *
-from model.Wizard import Wizard
-from model.World import World
-from model.Move import Move
 from math import *
-from Brain import Brain
 import collections
 from inspect import getsource
+from Point import *
+import MyStrategy
 
 
 class Debug:
     scale = 1
-    calc_cell_size = 1
 
-    def __init__(self, w, h, scale, calc_cell_size):
+    def __init__(self, w, h, scale):
         self.scale = scale
-        self.calc_cell_size = calc_cell_size
         self.window = Tk()
         self.canvas = Canvas(self.window, width=w * self.scale, height=h * self.scale, bg="white")
         self.canvas.pack()
 
-    def draw(self, brain: Brain, wizard: Wizard, world: World, move: Move, route, obstacles, destination):
+    def draw(self, s: MyStrategy):
         self.canvas.delete("all")
 
-        ti = 0
-        for t in brain.processed:
-            self.canvas.create_text(self.canvas.winfo_width() - 10, 10 + ti * 10,
+        for i, t in enumerate(s.brain.processed):
+            self.canvas.create_text(self.canvas.winfo_width() - 10, 10 + i * 10,
                                     text=getsource(t).strip().replace("self.brain.add_thought(lambda: self.", "")[:-1]
                                     if t.__name__ == "<lambda>" else t.__name__,
-                                    fill="blue", font=("Helvectica", "10"), anchor="e")
-            ti += 1
-        for t in brain.thoughts:
-            self.canvas.create_text(self.canvas.winfo_width() - 10, 10 + ti * 10,
-                                    text=getsource(t).strip().replace("self.brain.add_thought(lambda: self.", "")[:-1]
-                                    if t.__name__ == "<lambda>" else t.__name__,
-                                    fill="red", font=("Helvectica", "10"), anchor="e")
-            ti += 1
+                                    fill="gray", font=("Helvectica", "10"), anchor="e")
+
+        if s.brain.thoughts is not None:
+            for i, t in enumerate(s.brain.thoughts):
+                self.canvas.create_text(self.canvas.winfo_width() - 10,
+                                        10 + (len(s.brain.thoughts) - i - 1 + len(s.brain.processed)) * 10,
+                                        text=getsource(t).strip().replace(
+                                            "self.brain.add_thought(lambda: self.", "")[:-1]
+                                                if t.__name__ == "<lambda>" else t.__name__,
+                                        fill="green" if i == len(s.brain.thoughts) - 1 else "blue",
+                                        font=("Helvectica", "10"), anchor="e")
 
         self.canvas.create_text(self.canvas.winfo_width() / 2, 10,
-                                text="speed: {:.2f}".format(hypot(wizard.speed_x, wizard.speed_y)),
+                                text="Me.speed: {:.2f}".format(hypot(s.Me.speed_x, s.Me.speed_y)),
                                 fill="red", font=("Helvectica", "10"))
         self.canvas.create_text(self.canvas.winfo_width() / 2, 20,
-                                text="angle: {:.2f}".format(wizard.angle / pi * 180),
+                                text="Move.speed: {:.2f}".format(s.Move.speed),
+                                fill="red", font=("Helvectica", "10"))
+        self.canvas.create_text(self.canvas.winfo_width() / 2, 30,
+                                text="Move.strafe_speed: {:.2f}".format(s.Move.strafe_speed),
+                                fill="red", font=("Helvectica", "10"))
+        self.canvas.create_text(self.canvas.winfo_width() / 2, 40,
+                                text="Me.angle: {:.2f}".format(s.Me.angle / pi * 180),
+                                fill="red", font=("Helvectica", "10"))
+        self.canvas.create_text(self.canvas.winfo_width() / 2, 50,
+                                text="Move.turn: {:.2f}".format(s.Move.turn / pi * 180),
                                 fill="red", font=("Helvectica", "10"))
 
-        self.canvas.create_oval((wizard.x - wizard.radius) * self.scale,
-                                (wizard.y - wizard.radius) * self.scale,
-                                (wizard.x + wizard.radius) * self.scale,
-                                (wizard.y + wizard.radius) * self.scale,
+        self.canvas.create_text(10, 10,
+                                text="Tick: {:d}".format(s.tick_counter),
+                                fill="red", font=("Helvectica", "10"), anchor="w")
+        self.canvas.create_text(10, 20,
+                                text="Position: {:.2f}, {:.2f}".format(s.Me.x, s.Me.y),
+                                fill="red", font=("Helvectica", "10"), anchor="w")
+
+        self.canvas.create_oval((s.Me.x - s.Me.radius) * self.scale,
+                                (s.Me.y - s.Me.radius) * self.scale,
+                                (s.Me.x + s.Me.radius) * self.scale,
+                                (s.Me.y + s.Me.radius) * self.scale,
                                 outline="blue")
 
-        self.canvas.create_line(wizard.x * self.scale, wizard.y * self.scale,
-                                (wizard.x + wizard.vision_range * cos(wizard.angle)) * self.scale,
-                                (wizard.y + wizard.vision_range * sin(wizard.angle)) * self.scale,
+        self.canvas.create_line(s.Me.x * self.scale, s.Me.y * self.scale,
+                                (s.Me.x + s.Me.vision_range * cos(s.Me.angle)) * self.scale,
+                                (s.Me.y + s.Me.vision_range * sin(s.Me.angle)) * self.scale,
                                 fill="blue")
 
-        self.canvas.create_line(wizard.x * self.scale, wizard.y * self.scale,
-                                (wizard.x + move.speed * cos(wizard.angle)) * self.scale,
-                                (wizard.y + move.speed * sin(wizard.angle)) * self.scale,
+        self.canvas.create_line(s.Me.x * self.scale, s.Me.y * self.scale,
+                                (s.Me.x + s.Move.speed * cos(s.Me.angle)) * self.scale,
+                                (s.Me.y + s.Move.speed * sin(s.Me.angle)) * self.scale,
                                 fill="red", width=2)
 
-        for b in world.buildings:
+        for b in s.World.buildings:
             self.canvas.create_oval((b.x - b.radius) * self.scale,
                                     (b.y - b.radius) * self.scale,
                                     (b.x + b.radius) * self.scale,
                                     (b.y + b.radius) * self.scale,
                                     outline="black")
 
-        for t in world.trees:
+        for t in s.World.trees:
             self.canvas.create_oval((t.x - t.radius) * self.scale,
                                     (t.y - t.radius) * self.scale,
                                     (t.x + t.radius) * self.scale,
                                     (t.y + t.radius) * self.scale,
                                     outline="green")
 
-        if isinstance(route, collections.Iterable):
-            for i in route:
+        if isinstance(s.route, collections.Iterable):
+            for i in s.route:
                 x, y = i
-                self.canvas.create_rectangle(x * self.calc_cell_size * self.scale,
-                                             y * self.calc_cell_size * self.scale,
-                                             (x + 1) * self.calc_cell_size * self.scale - 1,
-                                             (y + 1) * self.calc_cell_size * self.scale - 1,
+                self.canvas.create_rectangle(x * CELL * self.scale,
+                                             y * CELL * self.scale,
+                                             (x + 1) * CELL * self.scale - 1,
+                                             (y + 1) * CELL * self.scale - 1,
                                              outline="#FFEE15")
 
-        for i in obstacles:
+        for i in s.obstacles:
             x, y = i
-            self.canvas.create_rectangle(x * self.calc_cell_size * self.scale,
-                                         y * self.calc_cell_size * self.scale,
-                                         (x + 1) * self.calc_cell_size * self.scale - 1,
-                                         (y + 1) * self.calc_cell_size * self.scale - 1,
+            self.canvas.create_rectangle(x * CELL * self.scale,
+                                         y * CELL * self.scale,
+                                         (x + 1) * CELL * self.scale - 1,
+                                         (y + 1) * CELL * self.scale - 1,
                                          outline="gray")
 
-        if len(destination) == 2:
-            x, y = destination
-            rx, ry = x // self.calc_cell_size * self.calc_cell_size + self.calc_cell_size / 2, \
-                     y // self.calc_cell_size * self.calc_cell_size + self.calc_cell_size / 2
+        for i in s.moving_obstacles:
+            x, y = i
+            self.canvas.create_rectangle(x * CELL * self.scale,
+                                         y * CELL * self.scale,
+                                         (x + 1) * CELL * self.scale - 1,
+                                         (y + 1) * CELL * self.scale - 1,
+                                         outline="#AA7505")
 
-            self.canvas.create_text(10, 10,
-                                    text="goto:{:d},{:d}".format(x, y),
-                                    fill="red", font=("Helvectica", "10"), anchor="w")
-            self.canvas.create_text(10, 20,
-                                    text="calc_goto:{:.2f},{:.2f}".format(rx, ry),
-                                    fill="red", font=("Helvectica", "10"), anchor="w")
+        if s.destination is not None and len(s.destination) == 2:
+            x, y = s.destination
+            rx, ry = to_real(to_calc(x)), to_real(to_calc(y))
 
-            self.canvas.create_line((x - self.calc_cell_size / 3) * self.scale,
-                                    (y - self.calc_cell_size / 3) * self.scale,
-                                    (x + self.calc_cell_size / 3) * self.scale,
-                                    (y + self.calc_cell_size / 3) * self.scale,
+            self.canvas.create_line((x - CELL / 3) * self.scale,
+                                    (y - CELL / 3) * self.scale,
+                                    (x + CELL / 3) * self.scale,
+                                    (y + CELL / 3) * self.scale,
                                     fill='red')
-            self.canvas.create_line((x - self.calc_cell_size / 3) * self.scale,
-                                    (y + self.calc_cell_size / 3) * self.scale,
-                                    (x + self.calc_cell_size / 3) * self.scale,
-                                    (y - self.calc_cell_size / 3) * self.scale,
+            self.canvas.create_line((x - CELL / 3) * self.scale,
+                                    (y + CELL / 3) * self.scale,
+                                    (x + CELL / 3) * self.scale,
+                                    (y - CELL / 3) * self.scale,
                                     fill='red')
+            self.canvas.create_text(10, 30,
+                                    text="destination: {:.2f}, {:.2f}".format(x, y),
+                                    fill="red", font=("Helvectica", "10"), anchor="w")
+            self.canvas.create_text(10, 40,
+                                    text="calc destination: {:.2f}, {:.2f}".format(rx, ry),
+                                    fill="red", font=("Helvectica", "10"), anchor="w")
+            if s.first_cell is not None and len(s.first_cell) == 2:
+                nx, ny = s.first_cell
+                nx, ny = to_real(nx), to_real(ny)
 
-            self.window.update()
+                self.canvas.create_text(10, 50,
+                                        text="next point: {:.2f}, {:.2f}".format(nx, ny),
+                                        fill="red", font=("Helvectica", "10"), anchor="w")
+                self.canvas.create_text(10, 60,
+                                        text="distance to next point: {:.2f}".format(s.Me.get_distance_to(nx, ny)),
+                                        fill="red", font=("Helvectica", "10"), anchor="w")
+                self.canvas.create_text(10, 70,
+                                        text="angle to next point: {:.2f}".format(
+                                            s.Me.get_angle_to(nx, ny) / pi * 180),
+                                        fill="red", font=("Helvectica", "10"), anchor="w")
+
+        self.window.update()
 
 
             # First_x = -500;
