@@ -14,10 +14,10 @@ from model.Faction import Faction
 
 
 OBSTACLES_PADDING = 35 - CELL // 2 + 1  # 35 - Me radius
-CHECKPOINT_INTERVAL = 40
-CONTINUE_GOING = 30
+CHECKPOINT_INTERVAL = 30
+CONTINUE_GOING = 15
 
-DEBUG = True
+DEBUG = False
 
 
 class MyStrategy:
@@ -39,7 +39,7 @@ class MyStrategy:
     current_point = None
     move_to_checkpoint = 0
 
-    i = -2
+    i = -6
     idle = 0
 
     Me = World = Game = Move = None
@@ -87,9 +87,15 @@ class MyStrategy:
             self.debug.draw(self)
 
     def go_to_checkpoint(self):
-        x, y = 2000 + (200 if self.start_x < 2000 else -200) * self.i, 2000 + (200 if self.start_y < 2000 else -200) * self.i
+        x, y = 2000 + (150 if self.start_x < 2000 else -150) * self.i,\
+               2000 + (150 if self.start_y < 2000 else -150) * self.i
+        self.brain.add(Thought(lambda: self.stop_moving_to_checkpoint()))
         self.brain.add(Thought(lambda: self.go_to2(x, y), "go_to2({}, {})", (x, y)))
-        return BrainState.done
+
+    def stop_moving_to_checkpoint(self):
+        self.move_to_checkpoint = 0
+        # print("stop_moving_to_checkpoint")
+        return BrainState.done, BrainState.think
 
     def check_target(self):
         targets = []
@@ -136,7 +142,7 @@ class MyStrategy:
         else:
             self.current_target = None
 
-        return BrainState.done
+        return BrainState.done, BrainState.think
 
     def check_bonus(self):
         if not self.move_to_bonus and self.Me.get_distance_to(1200, 1200) / 2.5\
@@ -154,7 +160,7 @@ class MyStrategy:
                     self.brain.add(Thought(self.get_bonus))
                     return BrainState.done
 
-        if 20 < self.Game.tick_count % self.Game.bonus_appearance_interval_ticks < 500:
+        if 20 < self.World.tick_index % self.Game.bonus_appearance_interval_ticks < 500:
             self.go_to_checkpoint()
             return BrainState.done
 
@@ -168,7 +174,8 @@ class MyStrategy:
 
     def check_checkpoint(self):
         if not self.move_to_bonus:
-            if self.Me.life < self.Me.max_life * 0.70 and self.move_to_checkpoint >= 0:
+            if self.Me.life < self.Me.max_life * 0.70 and self.move_to_checkpoint >= 0\
+                    and self.current_target is not None:
                 self.brain.forget("go_to_next_cell2")
                 self.brain.forget("go_to_next_cell")
                 self.brain.forget("go_to2({}, {})")
@@ -190,9 +197,6 @@ class MyStrategy:
             self.idle += 1
         else:
             self.idle = 0
-
-        if self.idle > 5:
-            self.move_to_checkpoint = 0
 
         return BrainState.think, BrainState.done
 

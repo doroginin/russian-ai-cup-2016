@@ -57,7 +57,7 @@ class Debug:
                                 fill="red", font=("Helvectica", "10"))
 
         self.canvas.create_text(10, 10,
-                                text="Tick: {:d}, idle: {:d}, checkpoint: {:d}".format(s.World.tick_index, s.idle, s.i),
+                                text="Tick: {:d}, idle: {:d}, checkpoint: {:d}({:d}), stuck: {:d}".format(s.World.tick_index, s.idle, s.i, s.move_to_checkpoint, s.stuck_ticks),
                                 fill="red", font=("Helvectica", "10"), anchor="w")
         self.canvas.create_text(10, 20,
                                 text="Position: {:.2f}, {:.2f}".format(s.Me.x, s.Me.y),
