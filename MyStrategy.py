@@ -3,7 +3,7 @@ from model.Game import Game
 from model.Move import Move
 from model.Wizard import Wizard
 from model.World import World
-from a_star import *
+from AStar import *
 from Debug import *
 from random import *
 from math import *
@@ -19,7 +19,7 @@ CHECKPOINT_INTERVAL = 10
 CONTINUE_GOING = 5
 WIZARD_CAST_RANGE_PADDING = 150
 
-DEBUG = True
+DEBUG = False
 
 
 class MyStrategy:

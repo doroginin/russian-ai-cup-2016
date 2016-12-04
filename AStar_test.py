@@ -1,4 +1,4 @@
-import a_star as pf
+import AStar as pf
 
 import unittest
 
