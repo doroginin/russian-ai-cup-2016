@@ -25,6 +25,8 @@ class Brain:
                 self.processed.append(thought)
 
                 if state & BrainState.done.value:
+                    if callable(thought.done):
+                        thought.done()
                     self.thoughts.remove(thought)
                 if state & BrainState.think.value:
                     continue

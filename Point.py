@@ -1,7 +1,7 @@
 from model.Unit import Unit
 
 
-CELL = 72  # @todo decrease it
+CELL = 70  # @todo decrease it
 
 
 class Point(Unit):

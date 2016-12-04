@@ -3,6 +3,7 @@ from math import *
 import collections
 from Point import *
 import MyStrategy
+from model.Faction import Faction
 
 
 class Debug:
@@ -26,6 +27,17 @@ class Debug:
 
     def draw(self, s: MyStrategy):
         self.canvas.delete("all")
+
+        # for c in s.a_star:
+        #     self.canvas.create_text(self.x(to_pixel(c.x)), self.y(to_pixel(c.y) - CELL / 3),
+        #                             text=c.g,
+        #                             fill="green", font=("Helvectica", "5"))
+        #     self.canvas.create_text(self.x(to_pixel(c.x)), self.y(to_pixel(c.y)),
+        #                             text=c.h,
+        #                             fill="blue", font=("Helvectica", "5"))
+        #     self.canvas.create_text(self.x(to_pixel(c.x)), self.y(to_pixel(c.y) + CELL / 3),
+        #                             text=c.f,
+        #                             fill="red", font=("Helvectica", "5"))
 
         for i, t in enumerate(s.brain.processed):
             self.canvas.create_text(self.canvas.winfo_width() - 10, 10 + i * 10,
@@ -93,6 +105,26 @@ class Debug:
                                     self.x(t.x + t.radius),
                                     self.y(t.y + t.radius),
                                     outline="green")
+
+        targets = []
+        targets += s.World.wizards
+        targets += s.World.minions
+
+        for t in targets:
+            if s.Me.id == t.id:
+                continue
+            if t.faction == Faction.NEUTRAL or t.faction == s.Me.faction:
+                self.canvas.create_oval(self.x(t.x - t.radius),
+                                        self.y(t.y - t.radius),
+                                        self.x(t.x + t.radius),
+                                        self.y(t.y + t.radius),
+                                        outline="#43AA53")
+                continue
+            self.canvas.create_oval(self.x(t.x - t.radius),
+                                    self.y(t.y - t.radius),
+                                    self.x(t.x + t.radius),
+                                    self.y(t.y + t.radius),
+                                    outline="red")
 
         for i in s.obstacles:
             x, y = i
@@ -175,4 +207,4 @@ class Debug:
 
         self.window.update()
         # self.window.after(500, self.window.mainloop)
-        # self.window.after(1000, self.window.update)
+        # self.window.after(500, self.window.update)

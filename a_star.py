@@ -25,7 +25,10 @@ class Cell(object):
 
 
 class AStar(object):
-    def __init__(self, allow_diagonal_transition=False):
+    allow_diagonal_transition = False
+    allow_closest_cell_for_unreachable_end = False
+
+    def __init__(self):
         # open list
         self.opened = []
         heapq.heapify(self.opened)
@@ -37,7 +40,6 @@ class AStar(object):
         self.grid_width = None
         self.start = None
         self.end = None
-        self.allow_diagonal_transition = allow_diagonal_transition
 
     def init_grid(self, width, height, walls, start, end):
         """Prepare grid cells, walls.
@@ -74,47 +76,55 @@ class AStar(object):
         """
         return self.cells[x * self.grid_height + y]
 
-    def get_adjacent_cells(self, cell):
+    def get_adjacent_cells(self, cell, r=1):
         """Returns adjacent cells to a cell.
         Clockwise starting from the one on the right.
         @param cell get adjacent cells for this cell
+        @param r selection radius
         @returns adjacent cells list.
         """
         cells = []
-        if cell.x < self.grid_width - 1:
-            cells.append(self.get_cell(cell.x + 1, cell.y))
+        if cell.x < self.grid_width - r:
+            for y in range(max(0, cell.y - r + 1), min(self.grid_height, cell.y + r)):
+                cells.append(self.get_cell(cell.x + r, y))
+        if (self.allow_diagonal_transition or r > 1) and cell.x < self.grid_width - r and cell.y > 0:
+            cells.append(self.get_cell(cell.x + r, cell.y - r))
         if cell.y > 0:
-            cells.append(self.get_cell(cell.x, cell.y - 1))
+            for x in range(max(0, cell.x - r + 1), min(self.grid_width, cell.x + r)):
+                cells.append(self.get_cell(x, cell.y - r))
+        if (self.allow_diagonal_transition or r > 1) and cell.x > 0 and cell.y > 0:
+            cells.append(self.get_cell(cell.x - r, cell.y - r))
         if cell.x > 0:
-            cells.append(self.get_cell(cell.x - 1, cell.y))
-        if cell.y < self.grid_height - 1:
-            cells.append(self.get_cell(cell.x, cell.y + 1))
-
-        if self.allow_diagonal_transition:
-            if cell.x < self.grid_width - 1 and cell.y < self.grid_height - 1:
-                cells.append(self.get_cell(cell.x + 1, cell.y + 1))
-            if cell.x < self.grid_width - 1 and cell.y > 0:
-                cells.append(self.get_cell(cell.x + 1, cell.y - 1))
-            if cell.x > 0 and cell.y < self.grid_height - 1:
-                cells.append(self.get_cell(cell.x - 1, cell.y + 1))
-            if cell.x > 0 and cell.y > 0:
-                cells.append(self.get_cell(cell.x - 1, cell.y - 1))
+            for y in range(max(0, cell.y - r + 1), min(self.grid_height, cell.y + r)):
+                cells.append(self.get_cell(cell.x - r, y))
+        if (self.allow_diagonal_transition or r > 1) and cell.x > 0 and cell.y < self.grid_height - r:
+            cells.append(self.get_cell(cell.x - r, cell.y + r))
+        if cell.y < self.grid_height - r:
+            for x in range(max(0, cell.x - r + 1), min(self.grid_width, cell.x + r)):
+                cells.append(self.get_cell(x, cell.y + r))
+        if (self.allow_diagonal_transition or r > 1) and cell.x < self.grid_width - r and cell.y < self.grid_height - r:
+            cells.append(self.get_cell(cell.x + r, cell.y + r))
 
         return cells
 
     def get_path(self):
-        start_xy = (self.start.x, self.start.y)
-        if self.end is self.start:
-            return [start_xy]
+        path, cell = [], None
+        if not self.end.reachable or self.end.parent is None:
+            if self.allow_closest_cell_for_unreachable_end:
+                r, max_r = 1, max(abs(self.start.x - self.end.x), abs(self.start.y - self.end.y))
+                while r < max_r:
+                    adj_cells = list(filter(lambda c: c.parent is not None, self.get_adjacent_cells(self.end, r)))
+                    if len(adj_cells) > 0:
+                        cell = min(adj_cells, key=lambda c: c.f)
+                        break
+                    r += 1
+        else:
+            cell = self.end
 
-        cell = self.end
-        path = [(cell.x, cell.y)]
-        while cell.parent is not self.start:
+        while cell is not None and cell.parent is not None or cell is self.start:
+            path = [(cell.x, cell.y)] + path
             cell = cell.parent
-            path.append((cell.x, cell.y))
 
-        path.append(start_xy)
-        path.reverse()
         return path
 
     def update_cell(self, adj, cell, is_diagonal):
@@ -128,10 +138,13 @@ class AStar(object):
         adj.parent = cell
         adj.f = adj.h + adj.g
 
-    def solve(self):
+    def solve(self, allow_diagonal_transition=False, allow_closest_cell_for_unreachable_end=False):
         """Solve maze, find path to ending cell.
-        @returns path or None if not found.
+        @returns path.
         """
+        self.allow_diagonal_transition = allow_diagonal_transition
+        self.allow_closest_cell_for_unreachable_end = allow_closest_cell_for_unreachable_end
+
         # add starting cell to open heap queue
         heapq.heappush(self.opened, (self.start.f, self.start))
         while len(self.opened):
@@ -151,7 +164,7 @@ class AStar(object):
                     if is_diagonal:
                         h_cell = self.get_cell(cell.x + (adj_cell.x - cell.x), cell.y)
                         v_cell = self.get_cell(cell.x, cell.y + (adj_cell.y - cell.y))
-                        if not h_cell.reachable or not v_cell.reachable:
+                        if not h_cell.reachable and not v_cell.reachable:
                             continue
 
                     if (adj_cell.f, adj_cell) in self.opened:
@@ -164,3 +177,5 @@ class AStar(object):
                         self.update_cell(adj_cell, cell, is_diagonal)
                         # add adj cell to open list
                         heapq.heappush(self.opened, (adj_cell.f, adj_cell))
+
+        return self.get_path()
