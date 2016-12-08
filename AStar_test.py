@@ -24,10 +24,10 @@ class Test(unittest.TestCase):
             if c[1] + 1 > h:
                 h = c[1] + 1
         world = [[" "] * w for _ in range(h)]
-        for p in path:
-            world[p[1]][p[0]] = '.'
         for c in walls:
             world[c[1]][c[0]] = '#'
+        for p in path:
+            world[p[1]][p[0]] = '.'
         return map(lambda r: "".join(r), world)
 
     @staticmethod
@@ -119,6 +119,19 @@ class Test(unittest.TestCase):
         ])
         a.init_grid(6, 6, walls, start, end)
         self.assertPathEquals(walls, expected_path, a.solve(True))
+
+    def test_start_eq_end(self):
+        a = pf.AStar()
+        walls, expected_path, start, end = self.from_sketch([
+            ".     ",
+            "      ",
+            "      ",
+            "      ",
+            "      ",
+            "      ",
+        ])
+        a.init_grid(6, 6, walls, (0,0), (0,0))
+        self.assertPathEquals(walls, expected_path, a.solve())
 
     def test_maze_no_solution(self):
         a = pf.AStar()

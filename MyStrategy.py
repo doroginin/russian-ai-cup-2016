@@ -15,45 +15,59 @@ from model.Faction import Faction
 
 # OBSTACLES_PADDING = 35 - CELL // 2 + 1  # 35 - Me radius
 OBSTACLES_PADDING = 10
-CHECKPOINT_INTERVAL = 10
-CONTINUE_GOING = 5
+CHECKPOINT_INTERVAL = 15
+CONTINUE_GOING = 10
 WIZARD_CAST_RANGE_PADDING = 150
 
 DEBUG = False
 
 
 class MyStrategy:
-    start_x = None
-    start_y = None
-    route = None
-    a_star = []
-    processed_route = []
-    obstacles = []
-    moving_obstacles = []
     brain = None
     debug = None
-    stuck_ticks = 0
-    move_to_bonus = False
-
-    destination = None
-    current_target = None
-    current_point = None
-    move_to_checkpoint = 0
-
-    i = -8
-    idle = 0
+    start_x = None
+    start_y = None
+    a_star = []
 
     Me = World = Game = Move = None
 
+    tick = 0
+
     def __init__(self):
-        self.brain = Brain()
+        if self.brain is None:
+            self.brain = Brain()
+        else:
+            self.brain.thoughts = []
+            self.brain.forget_processed_thoughts()
 
-        # self.brain.add(Thought(lambda: self.go_random(500), "go_random"))
-        # self.brain.add(Thought(lambda: self.go_to(200, 3700)))
+        self.stuck_ticks = 0
+        self.move_to_bonus = False
+        self.route = []
+        self.processed_route = []
+        self.obstacles = []
+        self.moving_obstacles = []
+        self.delayed_thoughts = []
+        self.destination = None
+        self.current_target = None
+        self.current_point = None
+        self.move_to_checkpoint = 0
+        self.accurate_mode = False
+        self.last_stuck_position = None
+        self.last_stuck_tick = None
+        self.i = -8
+        self.idle = 0
 
-        if DEBUG:
-            self.debug = Debug(800, 800, 0.17)
-            # self.debug = Debug(600, 700, 1, 0, 3200)
+        # case 1
+        # self.brain.add(Thought(lambda: self.go_to(190, 3600), 'go_to'))
+        # self.brain.add(Thought(lambda: self.go_to(190, 3750), 'go_to'))
+
+        # case 2
+        # self.brain.add(Thought(lambda: self.go_to(210, 3600), 'go_to'))
+        # self.brain.add(Thought(lambda: self.go_to(210, 3700), 'go_to'))
+
+        if DEBUG and self.debug is None:
+            self.debug = Debug(800, 800, 0.17, a_star=False)
+            # self.debug = Debug(800, 800, 1, 0, 3200, a_star=True)
 
     def move(self, me: Wizard, world: World, game: Game, move: Move):
         self.a_star = []
@@ -69,8 +83,15 @@ class MyStrategy:
         self.Game = game
         self.Move = move
 
+        # death
+        if self.World.tick_index - self.tick > 500:
+            self.__init__()
+
+        self.tick = self.World.tick_index
+
         self.brain\
-            .add(Thought(self.check_checkpoint)) \
+            .add(Thought(self.check_delayed_thoughts))\
+            .add(Thought(self.check_checkpoint))\
             .add(Thought(self.check_target))\
             .add(Thought(self.check_bonus))\
             .add(Thought(self.check_obstacles))\
@@ -81,9 +102,20 @@ class MyStrategy:
         if self.debug is not None:
             self.debug.draw(self)
 
+    def schedule(self, delay: int, thought: Thought):
+        self.delayed_thoughts.append({'after': (self.World.tick_index if self.World else 0) + delay, 'thought': thought})
+
+    def check_delayed_thoughts(self):
+        for t in self.delayed_thoughts:
+            if self.World.tick_index >= t['after']:
+                self.brain.add(t['thought'])
+                self.delayed_thoughts.remove(t)
+        return BrainState.done, BrainState.think
+
     def go_to_checkpoint(self):
+        self.move_to_bonus = False
         x, y = 2000 + (150 if self.start_x < 2000 else -150) * self.i,\
-               2000 + (150 if self.start_y < 2000 else -150) * self.i
+            2000 + (150 if self.start_y < 2000 else -150) * self.i
         self.brain.add(Thought(lambda: self.stop_moving_to_checkpoint()))
         self.brain.add(Thought(lambda: self.go_to(x, y), "go_to"))
 
@@ -121,6 +153,7 @@ class MyStrategy:
         distance = self.Me.get_distance_to_unit(target)
         if distance <= self.Game.wizard_cast_range + WIZARD_CAST_RANGE_PADDING:
             self.current_target = target
+            self.set_accurate_mode_on()
             angle = self.Me.get_angle_to_unit(target)
             self.Move.turn = angle
 
@@ -137,13 +170,14 @@ class MyStrategy:
                         self.Move.min_cast_distance = distance - target.radius + self.Game.magic_missile_radius
         else:
             self.current_target = None
+            self.set_accurate_mode_off()
 
         return BrainState.done, BrainState.think
 
     def check_bonus(self):
-        if not self.move_to_bonus and self.Me.get_distance_to(1200, 1200) / 2.5\
-                > self.Game.bonus_appearance_interval_ticks\
-                - self.World.tick_index % self.Game.bonus_appearance_interval_ticks:
+        d = self.Me.get_distance_to(1200, 1200)
+        if not self.move_to_bonus and d / 4 < self.Game.bonus_appearance_interval_ticks\
+                - self.World.tick_index % self.Game.bonus_appearance_interval_ticks < d / 2.5:
             self.move_to_bonus = True
             self.brain.add(Thought(self.wait_bonus))
             self.brain.add(Thought(lambda: self.go_to(1239, 1161), "go_near_bonus"))
@@ -164,25 +198,24 @@ class MyStrategy:
         if self.Me.get_distance_to(1200, 1200) > self.Me.radius + self.Game.bonus_radius:
             self.go_to(1200, 1200)
         else:
-            self.move_to_bonus = False
             self.go_to_checkpoint()
             return BrainState.done
 
     def check_checkpoint(self):
         if not self.move_to_bonus:
-            if self.Me.life < self.Me.max_life * 0.70 and self.move_to_checkpoint >= 0\
+            if self.Me.life < self.Me.max_life * 0.60 and self.move_to_checkpoint >= 0\
                     and self.current_target is not None:
                 self.brain.forget("go_to_next_cell")
                 self.brain.forget("go_to")
                 self.i -= 1
                 self.go_to_checkpoint()
                 self.move_to_checkpoint = -1
-            if self.Me.life > self.Me.max_life * 0.50 and self.idle > CHECKPOINT_INTERVAL:
+            if self.Me.life > self.Me.max_life * 0.60 and self.idle > CHECKPOINT_INTERVAL:
                 self.i += 1
                 self.go_to_checkpoint()
                 self.idle = 0
                 self.move_to_checkpoint = 1
-            if self.Me.life > self.Me.max_life * 0.50 and self.idle > CONTINUE_GOING and self.destination is not None:
+            if self.Me.life > self.Me.max_life * 0.60 and self.idle > CONTINUE_GOING and self.destination is not None:
                 self.brain.add(Thought(lambda: self.stop_moving_to_checkpoint()))
                 self.go_to(*self.destination)
                 self.idle = 0
@@ -197,23 +230,48 @@ class MyStrategy:
         return BrainState.think, BrainState.done
 
     def check_stuck(self):
-        if (abs(self.Move.speed) > 0 or abs(self.Move.strafe_speed) > 0) and abs(self.Me.speed_x) < 0.1 and abs(self.Me.speed_y) < 0.1:
+        if (abs(self.Move.speed) > 0 or abs(self.Move.strafe_speed) > 0)\
+                and abs(self.Me.speed_x) < 0.1 and abs(self.Me.speed_y) < 0.1:
             self.stuck_ticks += 1
         else:
             self.stuck_ticks = 0
             self.moving_obstacles = []
         if self.stuck_ticks > 1:
             self.brain.forget("go_to_next_cell")
-            if self.current_point is not None:
-                x, y = self.current_point
-                if to_cell(x) == to_cell(self.Me.x) and to_cell(y) == to_cell(self.Me.y):
-                    self.brain.forget("go_to")
-                else:
-                    self.moving_obstacles = self.find_moving_obstacles_around_me(100)
-                    self.Move.strafe_speed = -self.Move.strafe_speed
-                    self.Move.speed = -self.Move.speed
 
-        return BrainState.think, BrainState.done
+            # if self.last_stuck_position is (self.Me.x, self.Me.y)\
+            #     and self.World.tick_index - self.last_stuck_tick > 5:
+            #     print("cancel this move")
+            #     self.brain.forget("go_to")
+            #     return BrainState.done
+
+            self.last_stuck_position = (self.Me.x, self.Me.y)
+            self.last_stuck_tick = self.World.tick_index
+
+            if self.current_point is not None:
+                # x, y = self.current_point
+                # if to_cell(x) == to_cell(self.Me.x) and to_cell(y) == to_cell(self.Me.y):
+                #     self.brain.forget("go_to")
+                # else:
+                self.moving_obstacles = self.find_moving_obstacles_around_me(100)
+
+                # if self.accurate_mode:
+                #     self.set_accurate_mode_off()
+                # else:
+                #     self.set_accurate_mode_on()
+
+                # self.schedule(10, (Thought(self.set_accurate_mode_off)))
+                return BrainState.done, BrainState.think
+
+        return BrainState.done
+
+    def set_accurate_mode_on(self):
+        self.accurate_mode = True
+        return BrainState.done, BrainState.think
+
+    def set_accurate_mode_off(self):
+        self.accurate_mode = False
+        return BrainState.done, BrainState.think
 
     def find_obstacles_in_route(self):
         if len(self.route) > 0:
@@ -238,7 +296,8 @@ class MyStrategy:
         r = self.Me.radius
         x = min(max(r + 1, x), w - r - 1)
         y = min(max(r + 1, y), h - r - 1)
-        if self.Me.get_distance_to(x, y) > 0.1:
+        distance = self.Me.get_distance_to(x, y)
+        if distance > 0.1:
             self.destination = (x, y)
         else:
             return BrainState.done, BrainState.think
@@ -251,7 +310,8 @@ class MyStrategy:
         self.route = a.solve(True, True)
         self.a_star = a.cells
         if len(self.route) > 0:
-            del self.route[0]
+            if self.stuck_ticks < 5:
+                del self.route[0]
             self.brain.add(Thought(self.go_to_next_cell))
             return BrainState.think
         else:
@@ -299,7 +359,7 @@ class MyStrategy:
         h = self.Me.get_distance_to(*self.current_point)
         if h > 0.1:
             a = self.Me.get_angle_to(*self.current_point)
-            if abs(a) > pi / 360:
+            if self.accurate_mode and abs(a) > pi / 360:
                 h = min(3, h)
             self.Move.speed = h * cos(a)
             self.Move.strafe_speed = h * sin(a)

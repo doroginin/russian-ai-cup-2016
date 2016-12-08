@@ -145,6 +145,9 @@ class AStar(object):
         self.allow_diagonal_transition = allow_diagonal_transition
         self.allow_closest_cell_for_unreachable_end = allow_closest_cell_for_unreachable_end
 
+        if self.start is self.end:
+            return [(self.start.x, self.start.y)]
+
         # add starting cell to open heap queue
         heapq.heappush(self.opened, (self.start.f, self.start))
         while len(self.opened):

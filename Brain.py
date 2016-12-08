@@ -7,18 +7,18 @@ class Brain:
     thoughts = []
     processed = []
 
-    def add(self, thought: Thought):
-        if not isinstance(thought, Thought):
+    def add(self, what: Thought):
+        if not isinstance(what, Thought):
             raise TypeError
-        self.thoughts.append(thought)
+        self.thoughts.append(what)
         return self
 
-    def current(self) -> Thought:
+    def thought(self) -> Thought:
         return self.thoughts[len(self.thoughts) - 1] if len(self.thoughts) > 0 else None
 
     def think(self):
         while True:
-            thought = self.current()
+            thought = self.thought()
 
             if thought is not None:
                 state = _process_states(thought())
@@ -38,16 +38,19 @@ class Brain:
     def forget_processed_thoughts(self):
         self.processed = []
 
-    def forget(self, name=None):
-        if name is None:
+    def forget(self, name=None, n=1):
+        if name is None and n != 0:
             try:
                 self.thoughts.pop()
             except IndexError:
                 pass
         else:
             for t in self.thoughts:
+                if n == 0:
+                    break
                 if t.name == name:
                     self.thoughts.remove(t)
+                    n -= 1
         return self
 
 

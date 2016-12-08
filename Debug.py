@@ -7,37 +7,35 @@ from model.Faction import Faction
 
 
 class Debug:
-    scale = 1
-    start_x = 0
-    start_y = 0
-
     def x(self, x):
         return (x - self.start_x) * self.scale
 
     def y(self, y):
         return (y - self.start_y) * self.scale
 
-    def __init__(self, w, h, scale, start_x=0, start_y=0):
+    def __init__(self, w, h, scale, start_x=0, start_y=0, a_star=False):
         self.scale = scale
         self.start_x = start_x
         self.start_y = start_y
         self.window = Tk()
         self.canvas = Canvas(self.window, width=w, height=h, bg="white")
         self.canvas.pack()
+        self.a_star = a_star
 
     def draw(self, s: MyStrategy):
         self.canvas.delete("all")
 
-        # for c in s.a_star:
-        #     self.canvas.create_text(self.x(to_pixel(c.x)), self.y(to_pixel(c.y) - CELL / 3),
-        #                             text=c.g,
-        #                             fill="green", font=("Helvectica", "5"))
-        #     self.canvas.create_text(self.x(to_pixel(c.x)), self.y(to_pixel(c.y)),
-        #                             text=c.h,
-        #                             fill="blue", font=("Helvectica", "5"))
-        #     self.canvas.create_text(self.x(to_pixel(c.x)), self.y(to_pixel(c.y) + CELL / 3),
-        #                             text=c.f,
-        #                             fill="red", font=("Helvectica", "5"))
+        if self.a_star:
+            for c in s.a_star:
+                self.canvas.create_text(self.x(to_pixel(c.x)), self.y(to_pixel(c.y) - CELL / 3),
+                                        text=c.g,
+                                        fill="green", font=("Helvectica", "5"))
+                self.canvas.create_text(self.x(to_pixel(c.x)), self.y(to_pixel(c.y)),
+                                        text=c.h,
+                                        fill="blue", font=("Helvectica", "5"))
+                self.canvas.create_text(self.x(to_pixel(c.x)), self.y(to_pixel(c.y) + CELL / 3),
+                                        text=c.f,
+                                        fill="red", font=("Helvectica", "5"))
 
         for i, t in enumerate(s.brain.processed):
             self.canvas.create_text(self.canvas.winfo_width() - 10, 10 + i * 10,
@@ -72,14 +70,14 @@ class Debug:
                                 text="Tick: {:d}, idle: {:d}, checkpoint: {:d}({:d}), stuck: {:d}".format(s.World.tick_index, s.idle, s.i, s.move_to_checkpoint, s.stuck_ticks),
                                 fill="red", font=("Helvectica", "10"), anchor="w")
         self.canvas.create_text(10, 20,
-                                text="Position: {:.2f}, {:.2f}".format(s.Me.x, s.Me.y),
+                                text="Position: {:.2f}, {:.2f} / {:d}, {:d}".format(s.Me.x, s.Me.y, to_cell(s.Me.x), to_cell(s.Me.y)),
                                 fill="red", font=("Helvectica", "10"), anchor="w")
 
         self.canvas.create_oval(self.x(s.Me.x - s.Me.radius),
                                 self.y(s.Me.y - s.Me.radius),
                                 self.x(s.Me.x + s.Me.radius),
                                 self.y(s.Me.y + s.Me.radius),
-                                outline="blue")
+                                outline=self.get_my_color(s))
 
         self.canvas.create_rectangle(self.x(to_cell(s.Me.x) * CELL),
                                      self.y(to_cell(s.Me.y) * CELL),
@@ -141,6 +139,9 @@ class Debug:
                                          self.x((x + 1) * CELL) - 1,
                                          self.y((y + 1) * CELL) - 1,
                                          outline="gray")
+            self.canvas.create_text(self.x(to_pixel(x)), self.y(to_pixel(y)),
+                                    text="{},{}".format(x, y),
+                                    fill="gray", font=("Helvectica", "8"))
 
         if isinstance(s.processed_route, collections.Iterable):
             for i in s.processed_route:
@@ -208,3 +209,14 @@ class Debug:
         self.window.update()
         # self.window.after(500, self.window.mainloop)
         # self.window.after(500, self.window.update)
+
+    @staticmethod
+    def get_my_color(s: MyStrategy):
+        if s.move_to_bonus:
+            return "blue"
+        if s.move_to_checkpoint > 1:
+            return "red"
+        if s.move_to_checkpoint == 0:
+            return "gray"
+        if s.move_to_checkpoint < 0:
+            return "yellow"
