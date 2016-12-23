@@ -13,12 +13,12 @@ class Brain:
         self.thoughts.append(what)
         return self
 
-    def thought(self) -> Thought:
+    def current(self) -> Thought:
         return self.thoughts[len(self.thoughts) - 1] if len(self.thoughts) > 0 else None
 
     def think(self):
         while True:
-            thought = self.thought()
+            thought = self.current()
 
             if thought is not None:
                 state = _process_states(thought())
@@ -52,6 +52,12 @@ class Brain:
                     self.thoughts.remove(t)
                     n -= 1
         return self
+
+    def exists(self, name):
+        for t in self.thoughts:
+            if t.name == name:
+                return True
+        return False
 
 
 def _process_states(states):

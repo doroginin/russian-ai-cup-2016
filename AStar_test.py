@@ -86,9 +86,9 @@ class Test(unittest.TestCase):
         walls, expected_path, start, end = self.from_sketch([
             "[#    ",
             ".# ###",
-            " .# . ",
+            ". #...",
             " .#.#.",
-            "  . #.",
+            " ...#.",
             "## # ]",
         ])
         a.init_grid(6, 6, walls, start, end)
@@ -153,8 +153,8 @@ class Test(unittest.TestCase):
             ".# ###",
             ".# #  ",
             ".##   ",
-            " .  ##",
-            "##..#)",
+            "... ##",
+            "## .#)",
         ])
         a.init_grid(6, 6, walls, start, end)
         self.assertPathEquals(walls, expected_path, a.solve(True, True))
@@ -179,7 +179,7 @@ class Test(unittest.TestCase):
             ".# ###",
             ".# #  ",
             ".##   ",
-            " ...##",
+            "....##",
             "## ###",
         ])
         a.init_grid(6, 6, walls, start, (5, 5))

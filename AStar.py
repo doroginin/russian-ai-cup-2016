@@ -167,7 +167,7 @@ class AStar(object):
                     if is_diagonal:
                         h_cell = self.get_cell(cell.x + (adj_cell.x - cell.x), cell.y)
                         v_cell = self.get_cell(cell.x, cell.y + (adj_cell.y - cell.y))
-                        if not h_cell.reachable and not v_cell.reachable:
+                        if not h_cell.reachable or not v_cell.reachable:
                             continue
 
                     if (adj_cell.f, adj_cell) in self.opened:
